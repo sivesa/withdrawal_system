@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin | Enviro365 Investments</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">E365</span>
+    <div>
+      <h1>Enviro365 Investments</h1>
+      <p>Admin Panel</p>
+    </div>
+  </div>
+
+  <div class="user-menu">
+    <button type="button" class="user-menu-trigger" id="userMenuTrigger">
+      <span class="user-avatar">👤</span>
+      <span id="userMenuName">Administrator</span>
+      <span class="chevron">▾</span>
+    </button>
+    <div class="user-menu-dropdown" id="userMenuDropdown">
+      <a href="/enviro365/settings" class="user-menu-item">⚙ Settings</a>
+      <button type="button" class="user-menu-item" id="logoutBtn">⏻ Logout</button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ADD INVESTOR -->
+  <section class="card" id="addInvestorCard">
+    <div class="card-header">
+      <h2>Add Investor</h2>
+    </div>
+
+    <form id="addInvestorForm" novalidate>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="fullNameInput">Full Name</label>
+          <input type="text" id="fullNameInput" placeholder="e.g. Nomvula Zulu" required>
+        </div>
+        <div class="form-group">
+          <label for="emailInput">Email</label>
+          <input type="email" id="emailInput" placeholder="e.g. nomvula.zulu@example.com" required>
+        </div>
+        <div class="form-group">
+          <label for="dobInput">Date of Birth</label>
+          <input type="date" id="dobInput" required>
+        </div>
+      </div>
+
+      <div class="card-subheader">
+        <h3>Opening Holdings <span class="hint">(optional)</span></h3>
+        <button type="button" class="btn btn-secondary btn-small" id="addHoldingRowBtn">+ Add Holding</button>
+      </div>
+
+      <div id="holdingRows"></div>
+
+      <div id="adminValidationMessage" class="validation-message" hidden></div>
+
+      <button type="submit" class="btn btn-primary" id="createInvestorBtn">Create Investor</button>
+    </form>
+
+    <div id="adminResultBanner" class="result-banner" hidden></div>
+  </section>
+
+  <!-- EXISTING INVESTORS -->
+  <section class="card" id="investorsCard">
+    <div class="card-header">
+      <h2>All Investors</h2>
+      <button class="btn btn-secondary" id="refreshInvestorsBtn">↻ Refresh</button>
+    </div>
+
+    <table class="data-table" id="investorsTable">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Full Name</th>
+          <th>Email</th>
+          <th>Date of Birth</th>
+          <th>Age</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <p class="empty-state" id="investorsEmptyState" hidden>No investors found.</p>
+  </section>
+
+</main>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="/js/auth.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign In | Enviro365 Investments</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="auth-body">
+
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span class="brand-mark">E365</span>
+      <div>
+        <h1>Enviro365 Investments</h1>
+        <p>Withdrawal Management Portal</p>
+      </div>
+    </div>
+
+    <div class="auth-tabs">
+      <button type="button" class="auth-tab active" data-tab="investor">Investor</button>
+      <button type="button" class="auth-tab" data-tab="admin">Administrator</button>
+    </div>
+
+    <!-- INVESTOR LOGIN -->
+    <form id="investorLoginForm" class="auth-form" novalidate>
+      <div class="form-group">
+        <label for="investorLoginSelect">Select your account</label>
+        <select id="investorLoginSelect" required></select>
+      </div>
+      <div class="form-group">
+        <label for="investorLoginPassword">Password</label>
+        <input type="password" id="investorLoginPassword" placeholder="Enter any password" required>
+        <small class="hint">Demo mode — any password is accepted for the selected account.</small>
+      </div>
+      <button type="submit" class="btn btn-primary">Sign In</button>
+    </form>
+
+    <!-- ADMIN LOGIN -->
+    <form id="adminLoginForm" class="auth-form" hidden novalidate>
+      <div class="form-group">
+        <label for="adminUsername">Username</label>
+        <input type="text" id="adminUsername" placeholder="admin" required autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label for="adminPassword">Password</label>
+        <input type="password" id="adminPassword" placeholder="••••••••" required autocomplete="current-password">
+        <small class="hint">Demo credentials: <code>admin</code> / <code>Enviro365Admin!</code></small>
+      </div>
+      <button type="submit" class="btn btn-primary">Sign In</button>
+    </form>
+
+    <div id="loginError" class="validation-message" hidden></div>
+  </div>
+</div>
+
+<script src="/js/auth.js"></script>
+<script src="/js/login.js"></script>
+</body>
+</html>

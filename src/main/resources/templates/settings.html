@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings | Enviro365 Investments</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">E365</span>
+    <div>
+      <h1>Enviro365 Investments</h1>
+      <p>Account Settings</p>
+    </div>
+  </div>
+
+  <div class="user-menu">
+    <button type="button" class="user-menu-trigger" id="userMenuTrigger">
+      <span class="user-avatar">👤</span>
+      <span id="userMenuName">Account</span>
+      <span class="chevron">▾</span>
+    </button>
+    <div class="user-menu-dropdown" id="userMenuDropdown">
+      <a href="/enviro365/investor/dashboard" class="user-menu-item" id="backLink">← Back to Dashboard</a>
+      <button type="button" class="user-menu-item" id="logoutBtn">⏻ Logout</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="card" style="max-width: 560px; margin: 0 auto;">
+    <div class="card-header">
+      <h2>Profile</h2>
+    </div>
+
+    <div id="profileDetails" class="investor-details" style="flex-direction: column; gap: 14px;"></div>
+
+    <p class="hint" style="margin-top: 18px;">
+      This is a lightweight demo settings page. In a production system this is
+      where an investor would manage notification preferences, banking
+      details, and security settings.
+    </p>
+
+    <a href="/enviro365/investor/dashboard" class="btn btn-secondary" style="display:inline-block; margin-top: 14px; text-decoration: none;">← Back to Dashboard</a>
+  </section>
+</main>
+
+<script src="/js/auth.js"></script>
+<script src="/js/settings.js"></script>
+</body>
+</html>

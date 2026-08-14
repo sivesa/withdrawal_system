@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enviro365 Investments | Withdrawal Management</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">E365</span>
+    <div>
+      <h1>Enviro365 Investments</h1>
+      <p>Withdrawal Management Portal</p>
+    </div>
+  </div>
+
+  <!-- User menu: replaces the old investor-select dropdown. The logged-in
+       investor is now fixed by the login page, not chosen here. -->
+  <div class="user-menu">
+    <button type="button" class="user-menu-trigger" id="userMenuTrigger">
+      <span class="user-avatar">👤</span>
+      <span id="userMenuName">Investor</span>
+      <span class="chevron">▾</span>
+    </button>
+    <div class="user-menu-dropdown" id="userMenuDropdown">
+      <a href="/enviro365/settings" class="user-menu-item">⚙ Settings</a>
+      <button type="button" class="user-menu-item" id="logoutBtn">⏻ Logout</button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- PORTFOLIO DASHBOARD -->
+  <section class="card" id="portfolioCard">
+    <div class="card-header">
+      <h2>Portfolio Dashboard</h2>
+      <button class="btn btn-secondary" id="downloadPortfolioBtn">⬇ Download Portfolio CSV</button>
+    </div>
+
+    <div id="investorDetails" class="investor-details"></div>
+
+    <table class="data-table" id="holdingsTable">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Type</th>
+          <th>Balance</th>
+          <th>Max Withdrawable (90%)</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <p class="empty-state" id="holdingsEmptyState" hidden>No holdings found for this investor.</p>
+  </section>
+
+  <div class="two-col">
+
+    <!-- WITHDRAWAL FORM -->
+    <section class="card" id="withdrawalCard">
+      <div class="card-header">
+        <h2>New Withdrawal Notice</h2>
+      </div>
+
+      <form id="withdrawalForm" novalidate>
+        <div class="form-group">
+          <label for="holdingSelect">Product / Holding</label>
+          <select id="holdingSelect" required></select>
+          <small id="holdingHint" class="hint"></small>
+        </div>
+
+        <div class="form-group">
+          <label for="amountInput">Withdrawal Amount (ZAR)</label>
+          <input type="number" id="amountInput" min="0.01" step="0.01" placeholder="e.g. 5000.00" required>
+        </div>
+
+        <div id="clientValidationMessage" class="validation-message" hidden></div>
+
+        <button type="submit" class="btn btn-primary" id="submitWithdrawalBtn">Submit Withdrawal</button>
+      </form>
+
+      <div id="submitResultBanner" class="result-banner" hidden></div>
+    </section>
+
+    <!-- PORTFOLIO SUMMARY (replaces the old static "Withdrawal Rules" card) -->
+    <section class="card summary-card">
+      <div class="card-header">
+        <h2>Portfolio Summary</h2>
+      </div>
+      <div class="summary-grid" id="summaryGrid">
+        <div class="summary-tile">
+          <span class="summary-label">Total Portfolio Value</span>
+          <span class="summary-value" id="summaryTotalValue">-</span>
+        </div>
+        <div class="summary-tile">
+          <span class="summary-label">Products Held</span>
+          <span class="summary-value" id="summaryProductCount">-</span>
+        </div>
+        <div class="summary-tile">
+          <span class="summary-label">Total Withdrawals Attempted</span>
+          <span class="summary-value" id="summaryWithdrawalCount">-</span>
+        </div>
+        <div class="summary-tile">
+          <span class="summary-label">Most Recent Withdrawal</span>
+          <span class="summary-value" id="summaryLastWithdrawal">No attempts yet</span>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- WITHDRAWAL HISTORY -->
+  <section class="card" id="historyCard">
+    <div class="card-header">
+      <h2>Withdrawal History</h2>
+      <div class="header-actions">
+        <select id="historyStatusFilter">
+          <option value="">All statuses</option>
+          <option value="SUCCESS">Successful only</option>
+          <option value="REJECTED">Rejected only</option>
+        </select>
+        <button class="btn btn-secondary" id="downloadHistoryBtn">⬇ Download History CSV</button>
+      </div>
+    </div>
+
+    <table class="data-table" id="historyTable">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Product</th>
+          <th>Amount</th>
+          <th>Status</th>
+          <th>Balance After / Reason</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <p class="empty-state" id="historyEmptyState" hidden>No withdrawal attempts recorded yet.</p>
+  </section>
+
+</main>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="/js/auth.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>
