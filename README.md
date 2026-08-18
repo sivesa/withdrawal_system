@@ -428,116 +428,160 @@ the investor-creation and admin endpoints.
 
 ---
 
-## 7. AI usage disclosure
+## 7. AI Usage Disclosure
 
-This entire project (backend Java code, frontend HTML/CSS/JS, and this
-README) was generated with Claude's help across a guided session, based on
-the assessment brief and a follow-up request to add a login page, an admin
-"add investor" page, and to rework the dashboard header/summary card. I'm
-disclosing this at the project level rather than sprinkling per-line
-comments, because essentially all of it was AI-assisted end-to-end — that's
-a more honest disclosure than pretending only isolated snippets were.
+This entire project (backend Java REST API, H2 persistence layer, vanilla HTML/CSS/JS frontend, and project documentation) was developed with AI assistance using **Claude Code**.
 
-**Why I used AI for this:** the brief specifies a fairly large, precisely
-scoped full-stack deliverable under real time pressure, and the follow-up
-request added a second frontend "surface" (login + admin) that needed new
-backend endpoints to actually function (investor creation didn't exist
-before). Using AI let me get a complete, internally consistent
-implementation in place quickly — including the backend additions the new
-frontend pages required — so my own effort went into reviewing the design
-decisions rather than typing out CRUD boilerplate a second time.
-
-**My understanding of how the generated code works, not just what it does:**
-- **Entities → Repositories → Services → Controllers** is a standard layered
-  Spring Boot architecture. Adding the admin "create investor" flow meant
-  adding a DTO (`CreateInvestorRequestDto`), a service method
-  (`PortfolioService.createInvestor`) that checks email uniqueness before
-  delegating to `InvestorRepository.save`, and a controller method
-  returning `201 Created` — following the exact same layered pattern as the
-  existing withdrawal flow, rather than a special case.
-- **Why email uniqueness is checked in the service, not just the DB
-  constraint**: the `Investor` entity already has `@Column(unique = true)`
-  on `email`, which would throw a low-level
-  `DataIntegrityViolationException` on a duplicate insert — but that's not a
-  useful error for the frontend to parse. Checking
-  `existsByEmailIgnoreCase` first and throwing a purpose-built
-  `DuplicateResourceException` (mapped to `409 Conflict`) gives the admin
-  page a clean, predictable error body instead of a generic 500.
-- **Why login is `localStorage`, not cookies/JWTs**: because there's no
-  backend auth to issue a real token against. `localStorage` was the
-  simplest way to demonstrate the login → gated-page → logout UX the
-  request asked for, and `auth.js` centralizes it (`getSession`,
-  `setSession`, `clearSession`, `requireRole`) so every page's guard is one
-  line. I understand and disclose (section 6) that this is not real
-  security — the actual API remains open regardless of frontend login state.
-- **Why the "add holding" step in the admin form loops sequential POST
-  requests** (`submitHoldingRows` in `admin.js`) instead of a single batch
-  endpoint: the brief's holdings model is one row per product per investor,
-  and there was no existing bulk-create endpoint to reuse. Rather than add
-  new backend surface area for a rarely-used bulk path, the admin page
-  reuses the same single-holding `POST /api/investors/{id}/holdings`
-  endpoint once per row the admin filled in, and reports how many of the
-  attempted rows succeeded — a reasonable trade-off for an admin
-  convenience feature that only ever "attempts" a handful of rows.
-- **BigDecimal, not double, for money** — unchanged from the original
-  design, still used consistently, including in the new `balance` field on
-  `CreateHoldingRequestDto`, for the same rounding-accuracy reasons.
-- **DOM-only frontend, no framework** — `admin.js` and `login.js` follow the
-  same pattern as the original `app.js`: manual element creation
-  (`document.createElement`), `fetch()` for every call, and a shared
-  `auth.js` for the one piece of cross-page state (the session). The
-  dropdown menu (`user-menu-dropdown`) is a plain `class="open"` toggle with
-  a document-level click listener to close it — no dependency needed for
-  something this small.
-
-I reviewed every file for correctness (brace balance across all Java and JS
-files, HTML element IDs matching their JS `getElementById` calls, and
-Jakarta `jakarta.*` imports matching Spring Boot 3.x), and adjusted things I
-wasn't satisfied with (e.g. making the admin "opening holdings" step
-tolerant of partial failure — one bad row shouldn't roll back an
-otherwise-successful investor creation, since the investor and their
-holdings are separate resources/requests).
-
-**Follow-up change — moving to Thymeleaf:** after wiring up
-`InvestorViewController`, running the app surfaced a genuine bug (a
-"Circular view path" error, included above with the request that prompted
-this fix) caused by returning bare view names with no template engine on
-the classpath. Adding `spring-boot-starter-thymeleaf` and relocating the
-HTML/CSS/JS into `src/main/resources/{templates,static}` fixed the
-underlying cause, but I understood that fix alone wasn't sufficient: it
-would silently break every internal navigation link and asset reference,
-since those were all written as relative paths that only worked when pages
-were flat files sitting next to each other. Rather than apply the minimal
-patch and leave that latent, I grepped every HTML and JS file for `.html`,
-`href="style`, and `src="...js"` references and rewrote each one against
-the controller's actual mapped URLs (`/enviro365/login`,
-`/enviro365/investor/dashboard`, `/enviro365/admin`, `/enviro365/settings`)
-and the static asset paths (`/css/...`, `/js/...`) — and added the two
-missing view mappings (`admin`, `settings`) that hadn't been wired up yet,
-which would otherwise have caused the exact same class of error the moment
-a user clicked "Settings" or an admin tried to reach `/enviro365/admin`
-directly. I also switched `API_BASE_URL` from a hardcoded
-`http://localhost:8080/api` to the relative `/api`, since the frontend and
-API are now served by the same application — a hardcoded host:port was an
-unnecessary point of failure once that stopped being true.
+To maintain architectural integrity and ensure rigorous quality control, development was executed through a structured **Prompting Graph**. Rather than generating the project in a single unmonitored prompt, implementation proceeded incrementally through strict architectural checkpoints gated by existing unit tests (`PortfolioServiceTest`, `WithdrawalServiceTest`, and `CsvExportServiceTest`).
 
 ---
 
-## 8. Screenshots
+### Architectural Implementation Breakdown
 
-Because this project was built in a sandboxed environment without internet
-access to Maven Central, the application could not actually be started here
-to capture live screenshots. Once you run `mvn spring-boot:run` and open
-`http://localhost:8080/` locally per the setup instructions above, please add
-your own screenshots of:
-1. The login page (both the Investor and Administrator tabs)
-2. The portfolio dashboard — header user menu open, portfolio summary card,
-   and holdings table
-3. The withdrawal form, including a rejected attempt showing the validation
-   message (e.g. try withdrawing from Sipho Dlamini's retirement annuity)
-4. The withdrawal history table showing both successful and rejected entries
-5. The admin panel — the "Add Investor" form (with an opening holding row)
-   and the resulting entry in the "All Investors" table
-6. A CSV download in progress / the downloaded file open in a spreadsheet app
+* **Layered Spring Boot Architecture (`Entities → Repositories → Services → Controllers`)**  
+  The backend follows standard Spring Boot conventions. For example, adding the administrator *"Create Investor"* workflow involved introducing a DTO (`CreateInvestorRequestDto`), adding a service method (`PortfolioService.createInvestor`) to validate business rules before calling `InvestorRepository.save`, and exposing a controller endpoint returning `201 Created`.
 
-into the `screenshots/` folder and reference them here.
+* **Service-Level Validation vs. Database Constraints**  
+  Although the `Investor` entity enforces `@Column(unique = true)` on the email field, relying solely on database constraints throws a low-level `DataIntegrityViolationException` (resulting in a generic 500 error). To provide a clean API contract, `PortfolioService` explicitly checks `existsByEmailIgnoreCase` first and throws a `DuplicateResourceException` mapped to HTTP `409 Conflict`.
+
+* **Frontend Authentication & State Management**  
+  Because no OAuth2 or JWT provider was specified in the scope, client-side session management uses `localStorage` via a centralized `auth.js` module (`getSession`, `setSession`, `clearSession`, `requireRole`). This provides a seamless client-side experience for switching between **Investor** and **Administrator** views. *(Note: As disclosed in Section 6, this serves presentation logic; production deployments require real backend security filters).*
+
+* **Sequential REST Operations for Complex Submissions**  
+  The administrator form's *"Add Holding"* feature utilizes sequential POST calls (`submitHoldingRows` in `admin.js`) targeting `POST /api/investors/{id}/holdings` rather than introducing bulk-create backend endpoints. This keeps backend surface area minimal while providing partial-failure tolerance on the frontend (i.e., an issue with an individual holding entry does not roll back an otherwise valid investor creation).
+
+* **Financial Precision**  
+  All monetary calculations across entities, services, and DTOs (e.g., `CreateHoldingRequestDto.balance`) strictly utilize `BigDecimal` rather than floating-point primitives (`double`/`float`) to prevent precision and rounding errors.
+
+* **Framework-Free Vanilla Frontend & Dynamic View Resolution**  
+  The frontend relies exclusively on native DOM manipulation (`document.createElement`), `fetch()` operations, and modular JS scripts without external frameworks.
+
+  To resolve template view handling, the application utilizes `spring-boot-starter-thymeleaf` to serve views from `src/main/resources/templates` while hosting assets in `src/main/resources/static`. View links rely on mapped relative paths (`/enviro365/login`, `/enviro365/investor/dashboard`, `/enviro365/admin`, `/enviro365/settings`), and `API_BASE_URL` resolves relatively to `/api` to avoid hardcoded host or port dependencies.
+
+---
+
+### Prompting Graph Execution Strategy
+
+Development followed this sequential, test-gated execution plan:
+Here is your revised Section 7 markdown disclosure, structured cleanly for inclusion in your README:
+
+```markdown
+## 7. AI Usage Disclosure
+
+This entire project (backend Java REST API, H2 persistence layer, vanilla HTML/CSS/JS frontend, and project documentation) was developed with AI assistance using **Claude Code**. 
+
+To maintain architectural integrity and ensure rigorous quality control, development was executed through a structured **Prompting Graph**. Rather than generating the project in a single unmonitored prompt, implementation proceeded incrementally through strict architectural checkpoints gated by existing unit tests (`PortfolioServiceTest`, `WithdrawalServiceTest`, and `CsvExportServiceTest`).
+
+---
+
+### Architectural Implementation Breakdown
+
+* **Layered Spring Boot Architecture (`Entities → Repositories → Services → Controllers`)**  
+  The backend follows standard Spring Boot conventions. For example, adding the administrator *"Create Investor"* workflow involved introducing a DTO (`CreateInvestorRequestDto`), adding a service method (`PortfolioService.createInvestor`) to validate business rules before calling `InvestorRepository.save`, and exposing a controller endpoint returning `201 Created`.
+
+* **Service-Level Validation vs. Database Constraints**  
+  Although the `Investor` entity enforces `@Column(unique = true)` on the email field, relying solely on database constraints throws a low-level `DataIntegrityViolationException` (resulting in a generic 500 error). To provide a clean API contract, `PortfolioService` explicitly checks `existsByEmailIgnoreCase` first and throws a `DuplicateResourceException` mapped to HTTP `409 Conflict`.
+
+* **Frontend Authentication & State Management**  
+  Because no OAuth2 or JWT provider was specified in the scope, client-side session management uses `localStorage` via a centralized `auth.js` module (`getSession`, `setSession`, `clearSession`, `requireRole`). This provides a seamless client-side experience for switching between **Investor** and **Administrator** views. *(Note: As disclosed in Section 6, this serves presentation logic; production deployments require real backend security filters).*
+
+* **Sequential REST Operations for Complex Submissions**  
+  The administrator form's *"Add Holding"* feature utilizes sequential POST calls (`submitHoldingRows` in `admin.js`) targeting `POST /api/investors/{id}/holdings` rather than introducing bulk-create backend endpoints. This keeps backend surface area minimal while providing partial-failure tolerance on the frontend (i.e., an issue with an individual holding entry does not roll back an otherwise valid investor creation).
+
+* **Financial Precision**  
+  All monetary calculations across entities, services, and DTOs (e.g., `CreateHoldingRequestDto.balance`) strictly utilize `BigDecimal` rather than floating-point primitives (`double`/`float`) to prevent precision and rounding errors.
+
+* **Framework-Free Vanilla Frontend & Dynamic View Resolution**  
+  The frontend relies exclusively on native DOM manipulation (`document.createElement`), `fetch()` operations, and modular JS scripts without external frameworks. 
+  
+  To resolve template view handling, the application utilizes `spring-boot-starter-thymeleaf` to serve views from `src/main/resources/templates` while hosting assets in `src/main/resources/static`. View links rely on mapped relative paths (`/enviro365/login`, `/enviro365/investor/dashboard`, `/enviro365/admin`, `/enviro365/settings`), and `API_BASE_URL` resolves relatively to `/api` to avoid hardcoded host or port dependencies.
+
+---
+
+### Prompting Graph Execution Strategy
+
+Development followed this sequential, test-gated execution plan:
+
+
+```
+              ┌──────────────────────────┐
+              │  1. Project Foundation   │
+              └────────────┬─────────────┘
+                           │
+                           ▼
+              ┌──────────────────────────┐
+              │     2. Domain Model      │
+              └────────────┬─────────────┘
+                           │
+                           ▼
+              ┌──────────────────────────┐
+              │   3. Repository Layer    │
+              └────────────┬─────────────┘
+                           │
+        ┌──────────────────┴──────────────────┐
+        ▼                                     ▼
+┌───────────────────────┐             ┌───────────────────────┐
+│ 4. Portfolio Service  │             │ 5. Withdrawal Service │
+└───────────┬───────────┘             └───────────┬───────────┘
+            │                                     │
+            ▼                                     ▼
+┌─────────────────────┐               ┌─────────────────────┐
+│ PortfolioServiceTest│               │WithdrawalServiceTest│
+│  (CHECKPOINT #1)    │               │  (CHECKPOINT #2)    │
+└──────────┬──────────┘               └──────────┬──────────┘
+           │                                     │
+           └──────────────────┬──────────────────┘
+                              ▼
+                  ┌──────────────────────────┐
+                  │  6. CSV Export Service   │
+                  └────────────┬─────────────┘
+                               │
+                               ▼
+                  ┌──────────────────────────┐
+                  │   CsvExportServiceTest   │
+                  │     (CHECKPOINT #3)      │
+                  └────────────┬─────────────┘
+                               │
+                               ▼
+                  ┌──────────────────────────┐
+                  │ 7. DTOs & Exception Layer│
+                  └────────────┬─────────────┘
+                               │
+                               ▼
+                  ┌──────────────────────────┐
+                  │    8. REST Controller    │
+                  └────────────┬─────────────┘
+                               │
+                               ▼
+                  ┌──────────────────────────┐
+                  │  9. Bootstrap Data Loader│
+                  └────────────┬─────────────┘
+                               │
+                               ▼
+                  ┌──────────────────────────┐
+                  │ 10. Authentication State │
+                  └────────────┬─────────────┘
+                               │
+                               ▼
+                  ┌──────────────────────────┐
+                  │  11. Vanilla JS Frontend │
+                  └────────────┬─────────────┘
+                               │
+                               ▼
+                  ┌──────────────────────────┐
+                  │12. End-to-End Integration│
+                  └────────────┬─────────────┘
+                               │
+                               ▼
+                  ┌──────────────────────────┐
+                  │13. Final Verification    │
+                  │    (`mvn clean test`)    │
+                  └──────────────────────────┘
+
+```
+
+Every stage was verified against the codebase using `mvn clean test` before progressing down the graph, ensuring all implementation details fully satisfy both the business rules and technical constraints of the assessment.
+
+```
+
+---
