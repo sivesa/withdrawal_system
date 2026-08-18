@@ -3,6 +3,7 @@ package com.enviro.assessment.junior.sive.service;
 import com.enviro.assessment.junior.sive.dto.WithdrawalRequestDto;
 import com.enviro.assessment.junior.sive.dto.WithdrawalResponseDto;
 import com.enviro.assessment.junior.sive.entity.*;
+import com.enviro.assessment.junior.sive.exception.BusinessRuleException;
 import com.enviro.assessment.junior.sive.exception.ResourceNotFoundException;
 import com.enviro.assessment.junior.sive.repository.HoldingRepository;
 import com.enviro.assessment.junior.sive.repository.InvestorRepository;
@@ -16,17 +17,24 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for WithdrawalService, covering the three non-negotiable
- * business rules plus the structural error paths. Repositories are mocked
- * with Mockito so these tests run without a Spring context or database,
- * keeping them fast and focused purely on business logic.
+ * business rules, the full processWithdrawal() persistence flow (success,
+ * rejection, and structural-error paths), and the getHistory() filter
+ * combinations. Repositories are mocked with Mockito so these tests run
+ * without a Spring context or database, keeping them fast and focused
+ * purely on business logic.
  */
 @ExtendWith(MockitoExtension.class)
 class WithdrawalServiceTest {
@@ -65,7 +73,9 @@ class WithdrawalServiceTest {
         return holding;
     }
 
-    // ---------- Rule 1: retirement withdrawals require age > 65 ----------
+    // =====================================================================
+    // evaluateBusinessRules() - Rule 1: retirement withdrawals require age > 65
+    // =====================================================================
 
     @Test
     void rejectsRetirementWithdrawal_whenInvestorIs65OrYounger() {
@@ -85,7 +95,7 @@ class WithdrawalServiceTest {
 
         String reason = withdrawalService.evaluateBusinessRules(investor, holding, new BigDecimal("1000"));
 
-        assertNull(reason, "A 70 year old should be allowed to withdraw from a retirement product (within balance rules)");
+        assertNull(reason);
     }
 
     @Test
@@ -95,10 +105,12 @@ class WithdrawalServiceTest {
 
         String reason = withdrawalService.evaluateBusinessRules(investor, holding, new BigDecimal("1000"));
 
-        assertNull(reason, "The age rule should only apply to RETIREMENT_ANNUITY products");
+        assertNull(reason);
     }
 
-    // ---------- Rule 2: amount must not exceed available balance ----------
+    // =====================================================================
+    // evaluateBusinessRules() - Rule 2: amount must not exceed available balance
+    // =====================================================================
 
     @Test
     void rejectsWithdrawal_whenAmountExceedsBalance() {
@@ -111,7 +123,9 @@ class WithdrawalServiceTest {
         assertTrue(reason.contains("exceeds available balance"));
     }
 
-    // ---------- Rule 3: amount must not exceed 90% of available balance ----------
+    // =====================================================================
+    // evaluateBusinessRules() - Rule 3: amount must not exceed 90% of balance
+    // =====================================================================
 
     @Test
     void rejectsWithdrawal_whenAmountExceedsNinetyPercentOfBalance() {
@@ -145,7 +159,9 @@ class WithdrawalServiceTest {
         assertNull(reason);
     }
 
-    // ---------- End-to-end processWithdrawal: persistence + response shape ----------
+    // =====================================================================
+    // processWithdrawal() - persistence + response shape
+    // =====================================================================
 
     @Test
     void processWithdrawal_persistsSuccessAndDeductsBalance() {
@@ -170,6 +186,7 @@ class WithdrawalServiceTest {
         assertEquals(WithdrawalStatus.SUCCESS, response.getStatus());
         assertEquals(new BigDecimal("8000.00"), response.getBalanceAfter());
         assertEquals(new BigDecimal("8000.00"), holding.getBalance(), "Holding balance should be reduced");
+        verify(holdingRepository).save(holding);
     }
 
     @Test
@@ -196,6 +213,7 @@ class WithdrawalServiceTest {
         assertNotNull(response.getReason());
         assertNull(response.getBalanceAfter());
         assertEquals(new BigDecimal("10000.00"), holding.getBalance(), "Balance must be untouched on rejection");
+        verify(holdingRepository, never()).save(any());
     }
 
     @Test
@@ -208,5 +226,151 @@ class WithdrawalServiceTest {
         request.setAmount(BigDecimal.TEN);
 
         assertThrows(ResourceNotFoundException.class, () -> withdrawalService.processWithdrawal(request));
+        verifyNoInteractions(withdrawalNoticeRepository);
+    }
+
+    @Test
+    void processWithdrawal_throwsNotFound_whenHoldingDoesNotExist() {
+        Investor investor = investorAged(40);
+        when(investorRepository.findById(1L)).thenReturn(Optional.of(investor));
+        when(holdingRepository.findById(77L)).thenReturn(Optional.empty());
+
+        WithdrawalRequestDto request = new WithdrawalRequestDto();
+        request.setInvestorId(1L);
+        request.setHoldingId(77L);
+        request.setAmount(BigDecimal.TEN);
+
+        assertThrows(ResourceNotFoundException.class, () -> withdrawalService.processWithdrawal(request));
+        verifyNoInteractions(withdrawalNoticeRepository);
+    }
+
+    @Test
+    void processWithdrawal_throwsBusinessRuleException_whenHoldingBelongsToDifferentInvestor() {
+        Investor requestingInvestor = investorAged(40);
+        requestingInvestor.setId(1L);
+
+        Investor actualOwner = investorAged(50);
+        actualOwner.setId(2L);
+        Holding holding = holdingOf(actualOwner, savingsProduct, "10000.00");
+
+        when(investorRepository.findById(1L)).thenReturn(Optional.of(requestingInvestor));
+        when(holdingRepository.findById(1L)).thenReturn(Optional.of(holding));
+
+        WithdrawalRequestDto request = new WithdrawalRequestDto();
+        request.setInvestorId(1L);
+        request.setHoldingId(1L);
+        request.setAmount(BigDecimal.TEN);
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class,
+                () -> withdrawalService.processWithdrawal(request));
+        assertTrue(ex.getMessage().contains("does not belong to investor"));
+        verifyNoInteractions(withdrawalNoticeRepository);
+    }
+
+    // =====================================================================
+    // getHistory() - optional investorId / status filter combinations
+    // =====================================================================
+
+    private WithdrawalNotice noticeOf(Investor investor, Holding holding, WithdrawalStatus status) {
+        WithdrawalNotice notice = new WithdrawalNotice();
+        notice.setId(1L);
+        notice.setInvestor(investor);
+        notice.setHolding(holding);
+        notice.setRequestedAmount(new BigDecimal("1000.00"));
+        notice.setStatus(status);
+        notice.setCreatedAt(LocalDateTime.now());
+        return notice;
+    }
+
+    @Test
+    void getHistory_usesFindAll_whenNoFiltersGiven() {
+        Investor investor = investorAged(40);
+        Holding holding = holdingOf(investor, savingsProduct, "10000.00");
+        WithdrawalNotice notice = noticeOf(investor, holding, WithdrawalStatus.SUCCESS);
+
+        when(withdrawalNoticeRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(notice));
+
+        List<WithdrawalResponseDto> result = withdrawalService.getHistory(null, null);
+
+        assertEquals(1, result.size());
+        verify(withdrawalNoticeRepository).findAllByOrderByCreatedAtDesc();
+        verify(withdrawalNoticeRepository, never()).findByInvestorIdOrderByCreatedAtDesc(any());
+        verify(withdrawalNoticeRepository, never()).findByStatusOrderByCreatedAtDesc(any());
+        verify(withdrawalNoticeRepository, never()).findByInvestorIdAndStatusOrderByCreatedAtDesc(any(), any());
+    }
+
+    @Test
+    void getHistory_filtersByInvestorOnly() {
+        Investor investor = investorAged(40);
+        Holding holding = holdingOf(investor, savingsProduct, "10000.00");
+        WithdrawalNotice notice = noticeOf(investor, holding, WithdrawalStatus.SUCCESS);
+
+        when(withdrawalNoticeRepository.findByInvestorIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(notice));
+
+        List<WithdrawalResponseDto> result = withdrawalService.getHistory(1L, null);
+
+        assertEquals(1, result.size());
+        verify(withdrawalNoticeRepository).findByInvestorIdOrderByCreatedAtDesc(1L);
+        verify(withdrawalNoticeRepository, never()).findAllByOrderByCreatedAtDesc();
+    }
+
+    @Test
+    void getHistory_filtersByStatusOnly() {
+        Investor investor = investorAged(40);
+        Holding holding = holdingOf(investor, savingsProduct, "10000.00");
+        WithdrawalNotice notice = noticeOf(investor, holding, WithdrawalStatus.REJECTED);
+
+        when(withdrawalNoticeRepository.findByStatusOrderByCreatedAtDesc(WithdrawalStatus.REJECTED))
+                .thenReturn(List.of(notice));
+
+        List<WithdrawalResponseDto> result = withdrawalService.getHistory(null, WithdrawalStatus.REJECTED);
+
+        assertEquals(1, result.size());
+        assertEquals(WithdrawalStatus.REJECTED, result.get(0).getStatus());
+        verify(withdrawalNoticeRepository).findByStatusOrderByCreatedAtDesc(WithdrawalStatus.REJECTED);
+    }
+
+    @Test
+    void getHistory_filtersByInvestorAndStatusTogether() {
+        Investor investor = investorAged(40);
+        Holding holding = holdingOf(investor, savingsProduct, "10000.00");
+        WithdrawalNotice notice = noticeOf(investor, holding, WithdrawalStatus.SUCCESS);
+
+        when(withdrawalNoticeRepository.findByInvestorIdAndStatusOrderByCreatedAtDesc(1L, WithdrawalStatus.SUCCESS))
+                .thenReturn(List.of(notice));
+
+        List<WithdrawalResponseDto> result = withdrawalService.getHistory(1L, WithdrawalStatus.SUCCESS);
+
+        assertEquals(1, result.size());
+        verify(withdrawalNoticeRepository)
+                .findByInvestorIdAndStatusOrderByCreatedAtDesc(1L, WithdrawalStatus.SUCCESS);
+    }
+
+    @Test
+    void getHistory_mapsEntityFieldsOntoResponseDto() {
+        Investor investor = investorAged(40);
+        Holding holding = holdingOf(investor, savingsProduct, "10000.00");
+        WithdrawalNotice notice = noticeOf(investor, holding, WithdrawalStatus.SUCCESS);
+        notice.setBalanceAfter(new BigDecimal("9000.00"));
+
+        when(withdrawalNoticeRepository.findByInvestorIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(notice));
+
+        WithdrawalResponseDto dto = withdrawalService.getHistory(1L, null).get(0);
+
+        assertEquals(notice.getId(), dto.getId());
+        assertEquals(investor.getId(), dto.getInvestorId());
+        assertEquals(investor.getFullName(), dto.getInvestorName());
+        assertEquals(holding.getId(), dto.getHoldingId());
+        assertEquals(savingsProduct.getName(), dto.getProductName());
+        assertEquals(new BigDecimal("9000.00"), dto.getBalanceAfter());
+    }
+
+    @Test
+    void getHistory_returnsEmptyList_whenNoNoticesMatch() {
+        when(withdrawalNoticeRepository.findByInvestorIdOrderByCreatedAtDesc(404L)).thenReturn(List.of());
+
+        List<WithdrawalResponseDto> result = withdrawalService.getHistory(404L, null);
+
+        assertTrue(result.isEmpty());
     }
 }

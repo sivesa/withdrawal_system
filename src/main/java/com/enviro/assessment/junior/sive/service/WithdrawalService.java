@@ -28,8 +28,8 @@ public class WithdrawalService {
     private final WithdrawalNoticeRepository withdrawalNoticeRepository;
 
     public WithdrawalService(InvestorRepository investorRepository,
-                              HoldingRepository holdingRepository,
-                              WithdrawalNoticeRepository withdrawalNoticeRepository) {
+                             HoldingRepository holdingRepository,
+                             WithdrawalNoticeRepository withdrawalNoticeRepository) {
         this.investorRepository = investorRepository;
         this.holdingRepository = holdingRepository;
         this.withdrawalNoticeRepository = withdrawalNoticeRepository;
@@ -100,6 +100,14 @@ public class WithdrawalService {
         return null;
     }
 
+    /**
+     * @Transactional(readOnly = true): same reasoning as PortfolioService - with
+     * spring.jpa.open-in-view=false, toResponseDto()'s calls to
+     * notice.getInvestor().getFullName() and notice.getHolding().getProduct().getName()
+     * (both LAZY associations) need an open session, which only exists for the
+     * duration of this method if it's transactional.
+     */
+    @Transactional(readOnly = true)
     public List<WithdrawalResponseDto> getHistory(Long investorId, WithdrawalStatus status) {
         List<WithdrawalNotice> notices;
         if (investorId != null && status != null) {

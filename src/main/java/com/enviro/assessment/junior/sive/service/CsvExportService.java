@@ -6,6 +6,7 @@ import com.enviro.assessment.junior.sive.entity.WithdrawalStatus;
 import com.enviro.assessment.junior.sive.repository.HoldingRepository;
 import com.enviro.assessment.junior.sive.repository.WithdrawalNoticeRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
@@ -25,6 +26,12 @@ public class CsvExportService {
         this.withdrawalNoticeRepository = withdrawalNoticeRepository;
     }
 
+    /**
+     * @Transactional(readOnly = true): same "no Session" issue as the other
+     * services - h.getInvestor()/.getProduct() are LAZY and are read here well
+     * after the initial repository query would otherwise have closed its session.
+     */
+    @Transactional(readOnly = true)
     public String exportPortfolioCsv(Long investorId) {
         List<Holding> holdings = investorId != null
                 ? holdingRepository.findByInvestorId(investorId)
@@ -57,6 +64,7 @@ public class CsvExportService {
         return sb.toString();
     }
 
+    @Transactional(readOnly = true)
     public String exportWithdrawalsCsv(Long investorId, WithdrawalStatus status) {
         List<WithdrawalNotice> notices;
         if (investorId != null && status != null) {
